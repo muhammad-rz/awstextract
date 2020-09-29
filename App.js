@@ -1,4 +1,3 @@
-import { StatusBar } from 'expo-status-bar';
 import React, { Component } from 'react';
 import {
   StyleSheet,
@@ -6,8 +5,9 @@ import {
   View,
   TextInput,
   Image,
-  ScrollView,
   TouchableHighlight,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import Amplify, { API } from 'aws-amplify';
 import * as ImagePicker from 'expo-image-picker';
@@ -19,9 +19,9 @@ Amplify.configure({
   API: {
     endpoints: [
       {
-        name: 'awsrekog', //your api name
+        name: 'awstextract', //your api name
         endpoint:
-          'https://mv024sjja3.execute-api.ap-southeast-1.amazonaws.com/dev', //Your Endpoint URL
+          'https://tpnbxe7j5i.execute-api.ap-southeast-1.amazonaws.com/dev', //Your Endpoint URL
       },
     ],
   },
@@ -33,16 +33,18 @@ class App extends Component {
     this.state = {
       image: '',
       capturedImage: '',
-      objectName: '',
+      detectedText: '',
+      isLoading: false,
     };
   }
 
-  componentDidMount() {
-    this.getPermissionAsync();
+  async componentDidMount() {
+    this.getCameraRollPermissionAsync();
+    this.getCameraPermissionAsync();
   }
 
   // Request permistion to device for ios
-  getPermissionAsync = async () => {
+  getCameraRollPermissionAsync = async () => {
     if (Constants.platform.ios) {
       const { status } = await Permission.askAsync(Permission.CAMERA_ROLL);
       if (status !== 'granted') {
@@ -51,16 +53,25 @@ class App extends Component {
     }
   };
 
+  // Request permision to use camera
+  getCameraPermissionAsync = async () => {
+    const { status } = await Permission.askAsync(Permission.CAMERA);
+    if (status !== 'granted') {
+      alert('Sorry, the app need camera permissions');
+    }
+  };
+
   // Handling load image from galery button
   captureImageButtonHandler = async () => {
     this.setState({
-      objectName: '',
+      detectedText: '',
     });
     try {
-      let response = await ImagePicker.launchImageLibraryAsync({
+      //let response = await ImagePicker.launchImageLibraryAsync({
+      let response = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [4, 3],
+        aspect: [16, 9],
         quality: 1,
         base64: true,
       });
@@ -74,8 +85,8 @@ class App extends Component {
         });
       }
       //console.log(response);
-      console.log(this.state.base64String);
-      console.log(this.state.capturedImage);
+      //console.log(this.state.base64String);
+      //console.log(this.state.capturedImage);
     } catch (err) {
       console.log(err);
     }
@@ -90,7 +101,10 @@ class App extends Component {
     ) {
       alert('Please Capture the Image');
     } else {
-      const apiName = 'awsrekog';
+      this.setState({
+        isLoading: true,
+      });
+      const apiName = 'awstextract';
       const path = '/';
       const init = {
         headers: {
@@ -99,14 +113,50 @@ class App extends Component {
         },
         body: JSON.stringify({
           Image: this.state.base64String,
-          name: 'storeImage.jpg',
+          name: 'textractImage.jpg',
         }),
       };
 
       API.post(apiName, path, init).then((response) => {
-        if (JSON.stringify(response.Labels.length) > 0) {
+        if (response) {
+          let data = JSON.stringify(response);
+          //let data = JSON.parse(response);
+          //let data = JSON.parse(dataRes);
+          let extractedText = data;
+          // dataRes.forEach((obj) => {
+          //   Object.entries(obj).forEach(([key, value]) => {
+          //     if (key == 'BlockType' && value == 'LINE') {
+          //       extractedText += obj.Text + '\n';
+          //       console.log(obj.Text);
+          //     }
+          //   });
+          // });
+          // if (JSON.stringify(response) !== '') {
+          //   var json = JSON.parse(JSON.stringify(response));
+          //   let extractedText = '';
+          //   let blockTypeArray = json.Blocks;
+          //   console.log();
+          //   // for (let item = 0; item < blockTypeArray.lenght; item++) {
+          //   //   if (item['BlockType'] == 'LINE') {
+          //   //     console.log(item);
+          //   //   }
+          //   // }
+          //   // for (let item of json['Blocks']) {
+          //   //   if (item['BlockType'] === 'LINE') {
+          //   //     extractedText += item['Text'] + '\n';
+          //   //   }
+          //   // }
+          // Using Map()
+          // data.map((dataItem) => {
+          //   if (dataItem.BlockType == 'LINE') {
+          //     extractedText += dataItem.Text + '\n';
+          //   }
+          // });
+          console.log(extractedText);
+
           this.setState({
-            objectName: response.Labels[0].Name,
+            isLoading: false,
+            detectedText: extractedText,
           });
         } else {
           alert('Please Try Again.');
@@ -119,60 +169,80 @@ class App extends Component {
     if (this.state.image !== '') {
     }
     return (
-      <View style={styles.MainContainer}>
-        <ScrollView>
-          <Text
-            style={{
-              fontSize: 20,
-              color: '#000',
-              textAlign: 'center',
-              marginBottom: 15,
-              marginTop: 10,
-            }}
-          >
-            Capture Image
-          </Text>
-          {this.state.capturedImage !== '' && (
-            <View style={styles.imageholder}>
-              <Image
-                source={{ uri: this.state.capturedImage }}
-                style={styles.previewImage}
-              />
-            </View>
-          )}
-          {this.state.objectName ? (
-            <TextInput
-              underlineColorAndroid='transparent'
-              style={styles.TextInputStyleClass}
-              value={this.state.objectName}
+      <View style={styles.container}>
+        <Text
+          style={{
+            fontSize: 20,
+            color: '#000',
+            textAlign: 'center',
+            marginBottom: 15,
+            marginTop: 10,
+          }}
+        >
+          Text Extract
+        </Text>
+        {this.state.capturedImage !== '' && (
+          <View style={styles.imageholder}>
+            <Image
+              source={{ uri: this.state.capturedImage }}
+              style={styles.previewImage}
             />
-          ) : null}
-          <TouchableHighlight
-            style={[styles.buttonContainer, styles.captureButton]}
-            onPress={this.captureImageButtonHandler}
-          >
-            <Text style={styles.buttonText}>Capture Image</Text>
-          </TouchableHighlight>
+          </View>
+        )}
+        <ActivityIndicator animating={this.state.isLoading} size='small' />
+        {this.state.detectedText
+          ? Alert.alert(
+              'Detected Text',
+              this.state.detectedText,
+              [
+                {
+                  text: 'Ok',
+                  onPress: () =>
+                    this.setState({
+                      capturedImage: '',
+                      detectedText: '',
+                    }),
+                },
+              ],
+              { cancelable: false }
+            )
+          : // <TextInput
+            //   underlineColorAndroid='transparent'
+            //   style={styles.TextInputStyleClass}
+            //   value={this.state.detectedText}
+            // />
+            null}
+        <TouchableHighlight
+          style={[styles.buttonContainer, styles.captureButton]}
+          onPress={this.captureImageButtonHandler}
+        >
+          <Text style={styles.buttonText}>Capture Image</Text>
+        </TouchableHighlight>
 
-          <TouchableHighlight
-            style={[styles.buttonContainer, styles.submitButton]}
-            onPress={this.submitButtonHandler}
-          >
-            <Text style={styles.buttonText}>Submit</Text>
-          </TouchableHighlight>
-        </ScrollView>
+        <TouchableHighlight
+          style={[styles.buttonContainer, styles.submitButton]}
+          onPress={this.submitButtonHandler}
+        >
+          <Text style={styles.buttonText}>Submit</Text>
+        </TouchableHighlight>
       </View>
     );
   }
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f7f7f7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   TextInputStyleClass: {
     textAlign: 'center',
+    marginTop: 20,
     marginBottom: 7,
     height: 40,
     borderWidth: 1,
-    marginLeft: 90,
     width: '50%',
     justifyContent: 'center',
     borderColor: '#D0D0D0',
@@ -195,14 +265,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
-    width: '80%',
+    width: '50%',
     borderRadius: 30,
     marginTop: 20,
     marginLeft: 5,
-  },
-  captureButton: {
-    backgroundColor: '#337ab7',
-    width: 350,
   },
   buttonText: {
     color: 'white',
@@ -213,9 +279,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     padding: 10,
   },
+  captureButton: {
+    elevation: 8,
+    backgroundColor: '#337ab7',
+    width: 250,
+  },
   submitButton: {
-    backgroundColor: '#C0C0C0',
-    width: 350,
+    elevation: 8,
+    backgroundColor: 'green',
+    width: 250,
     marginTop: 5,
   },
   imageholder: {
@@ -225,7 +297,6 @@ const styles = StyleSheet.create({
     width: '50%',
     height: 150,
     marginTop: 10,
-    marginLeft: 90,
     flexDirection: 'row',
     alignItems: 'center',
   },

@@ -8,15 +8,18 @@
     "eject": "expo eject"
   },
   "dependencies": {
+    "@expo/vector-icons": "^10.2.0",
     "@react-native-community/netinfo": "^5.9.6",
     "amazon-cognito-identity-js": "^4.3.3",
     "aws-amplify": "^3.0.23",
     "aws-amplify-react-native": "^4.2.4",
     "expo": "~38.0.8",
     "expo-constants": "^9.1.1",
+    "expo-font": "~8.2.1",
     "expo-image-picker": "~8.3.0",
     "expo-permissions": "^9.1.0",
     "expo-status-bar": "^1.0.2",
+    "native-base": "^2.13.13",
     "react": "~16.11.0",
     "react-dom": "~16.11.0",
     "react-native": "https://github.com/expo/react-native/archive/sdk-38.0.2.tar.gz",
